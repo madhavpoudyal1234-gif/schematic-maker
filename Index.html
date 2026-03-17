@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Schematic Maker | Professional Scientific Illustrator</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+    <style>
+        :root { --primary: #000000; --accent: #27ae60; --bg: #fdfdfd; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); text-align: center; padding: 20px; color: #333; line-height: 1.6; }
+        .wrapper { max-width: 650px; margin: 40px auto; background: #fff; border: 2px solid var(--primary); padding: 40px; box-shadow: 12px 12px 0px var(--primary); }
+        h1 { font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; margin-top: 0; }
+        .tagline { color: #666; font-size: 0.9rem; margin-bottom: 30px; }
+        .upload-area { border: 2px dashed #ccc; padding: 30px; border-radius: 4px; margin-bottom: 25px; cursor: pointer; transition: 0.3s; }
+        .upload-area:hover { border-color: var(--primary); background: #f9f9f9; }
+        input[type="file"] { width: 100%; cursor: pointer; }
+        button { background: var(--primary); color: #fff; border: none; padding: 18px 30px; width: 100%; font-weight: 800; font-size: 1rem; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+        button:hover { transform: translate(-3px, -3px); box-shadow: 6px 6px 0px var(--accent); }
+        button:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; transform: none; }
+        #result { margin-top: 40px; display: none; text-align: left; }
+        #result img { width: 100%; border: 1px solid #000; margin-top: 10px; }
+        .loader { display: none; margin-top: 20px; font-weight: 700; color: var(--accent); }
+        .footer { margin-top: 40px; font-size: 0.8rem; border-top: 1px solid #eee; padding-top: 20px; }
+        .nav-links { margin-top: 15px; }
+        .nav-links a { color: #666; text-decoration: none; margin: 0 10px; font-weight: bold; }
+        .nav-links a:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <h1>Schematic Maker</h1>
+    <p class="tagline">Convert hand-drawn sketches into digital exam-ready diagrams</p>
+
+    <div class="upload-area">
+        <input type="file" id="imageInput" accept="image/*">
+        <p style="margin-top: 10px; font-size: 0.8rem;">Upload geometry, physics, or biology sketches</p>
+    </div>
+
+    <button id="generateBtn">Process Schematic</button>
+    <div id="loader" class="loader">Drawing digital schematic... Please wait.</div>
+
+    <div id="result">
+        <p><strong>Resulting Digital Schematic:</strong></p>
+        <img id="outputImg" src="" alt="Digital Schematic">
+        <p style="text-align: center; margin-top: 15px;">
+            <a id="dl" href="#" download="schematic.png" style="color: #000; text-decoration: underline; font-weight: bold;">[ ↓ Download Image ]</a>
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>Utilizing Nano Banana Engine • Designed for Academic Use</p>
+        <div class="nav-links">
+            <a href="about.html">About</a>
+            <a href="privacy-policy.html">Privacy Policy</a>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+    // HARDCODED API KEY
+    const API_KEY = "AIzaSyD_BkCzM4XB-MtDt3hQ64e-81VoICqA8_s";
+    const genAI = new GoogleGenerativeAI(API_KEY);
+
+    // FIXED SYSTEM PROMPT
+    const SYSTEM_PROMPT = `Act as a professional scientific illustrator. 
+    Transform the uploaded sketch into a high-resolution, digital schematic. 
+    STRICT REQUIREMENTS: 
+    - Clean, minimalist black-and-white line art.
+    - Perfectly straight edges for geometry and smooth curves for functions.
+    - Solid white background with zero shadows or textures.
+    - Use clear sans-serif font for labels. 
+    - Output must be a 2D flat design suitable for printed mathematics or science exam papers.`;
+
+    const btn = document.getElementById('generateBtn');
+    const loader = document.getElementById('loader');
+    const resultDiv = document.getElementById('result');
+
+    btn.onclick = async () => {
+        const fileInput = document.getElementById('imageInput');
+        if (!fileInput.files[0]) return alert("Please select a file first!");
+
+        btn.disabled = true;
+        loader.style.display = "block";
+        resultDiv.style.display = "none";
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        
+        reader.onload = async () => {
+            const base64Data = reader.result.split(',')[1];
+            
+            try {
+                // Initializing the Nano Banana model
+                const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-image-preview" });
+                const result = await model.generateContent({
+                    contents: [{
+                        role: 'user',
+                        parts: [
+                            { text: SYSTEM_PROMPT },
+                            { inlineData: { data: base64Data, mimeType: file.type }}
+                        ]
+                    }],
+                    generationConfig: { responseModalities: ["IMAGE"] }
+                });
+
+                const response = await result.response;
+                const part = response.candidates[0].content.parts.find(p => p.inlineData);
+                
+                if (part) {
+                    const finalUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    document.getElementById('outputImg').src = finalUrl;
+                    document.getElementById('dl').href = finalUrl;
+                    resultDiv.style.display = "block";
+                }
+            } catch (err) {
+                console.error(err);
+                alert("API Error: You might have hit the daily free limit.");
+            } finally {
+                btn.disabled = false;
+                loader.style.display = "none";
+            }
+        };
+    };
+</script>
+
+</body>
+</html>
